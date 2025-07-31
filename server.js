@@ -1,45 +1,45 @@
 ﻿import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import Filter from "leo-profanity";
+import filter from "leo-profanity";
 
 const app = express();
-const server = createServer(app);
-const io = new Server(server);
+const httpServer = createServer(app);
+const io = new Server(httpServer);
 
 app.use(express.static("public"));
 
-Filter.loadDictionary();
+// ✅ 300 starter bottles
+const bottles = Array.from({ length: 300 }, (_, i) => ({
+  id: i + 1,
+  message: `📜 Bottle #${i + 1}: A message drifts across the sea...`
+}));
 
-// ✅ Pre-fill with 300 random bottles (they will never run out)
-const starterMessages = Array.from({ length: 300 }, (_, i) => `📜 Bottle #${i+1}: A message drifts across the sea...`);
+io.on("connection", (socket) => {
+  console.log("🌊 A new user has connected");
 
-io.on("connection", socket => {
-  console.log("🌊 A user connected");
-
-  // 📥 Throw new bottles
-  socket.on("throwBottle", msg => {
-    const cleanMsg = Filter.clean(msg);
-    starterMessages.push(cleanMsg);
-    console.log("🍾 Bottle thrown:", cleanMsg);
+  // 🏖️ Handle tossBottle
+  socket.on("tossBottle", (msg) => {
+    const cleanMsg = filter.clean(msg);
+    bottles.push({ id: bottles.length + 1, message: `📜 Bottle: ${cleanMsg}` });
+    io.emit("newBottle", cleanMsg);
   });
 
-  // 🔍 Look for bottles (now bottles remain in the ocean)
-  socket.on("lookForBottles", () => {
-    if (starterMessages.length > 0) {
-      const randomIndex = Math.floor(Math.random() * starterMessages.length);
-      const foundMsg = starterMessages[randomIndex];
-      socket.emit("foundBottle", foundMsg);
+  // 🏖️ Handle lookForBottle
+  socket.on("lookForBottle", () => {
+    if (bottles.length > 0) {
+      const randomBottle = bottles.splice(Math.floor(Math.random() * bottles.length), 1)[0];
+      socket.emit("foundBottle", randomBottle.message);
     } else {
-      socket.emit("foundBottle", "🌊 The ocean is calm — no bottles right now!");
+      socket.emit("foundBottle", "🌊 No bottles floating right now — toss one in!");
     }
   });
 
   socket.on("disconnect", () => {
-    console.log("👋 A user disconnected");
+    console.log("🚪 User left");
   });
 });
 
-server.listen(3000, () => {
+httpServer.listen(3000, () => {
   console.log("🚀 Message in the Ocean running on http://localhost:3000");
 });
