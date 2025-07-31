@@ -1,45 +1,37 @@
 ﻿import express from "express";
-import { createServer } from "http";
+import http from "http";
 import { Server } from "socket.io";
-import filter from "leo-profanity";
+import Filter from "leo-profanity";
+import path from "path";
 
 const app = express();
-const httpServer = createServer(app);
-const io = new Server(httpServer);
+const server = http.createServer(app);
+const io = new Server(server);
 
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
 
-// ✅ 300 starter bottles
-const bottles = Array.from({ length: 300 }, (_, i) => ({
-  id: i + 1,
-  message: `📜 Bottle #${i + 1}: A message drifts across the sea...`
-}));
+io.on("connection", socket => {
+  console.log("🌊 New connection");
 
-io.on("connection", (socket) => {
-  console.log("🌊 A new user has connected");
-
-  // 🏖️ Handle tossBottle
-  socket.on("tossBottle", (msg) => {
-    const cleanMsg = filter.clean(msg);
-    bottles.push({ id: bottles.length + 1, message: `📜 Bottle: ${cleanMsg}` });
-    io.emit("newBottle", cleanMsg);
+  socket.on("throwBottle", msg => {
+    const clean = Filter.clean(msg);
+    console.log("🍾 Bottle tossed:", clean);
   });
 
-  // 🏖️ Handle lookForBottle
-  socket.on("lookForBottle", () => {
-    if (bottles.length > 0) {
-      const randomBottle = bottles.splice(Math.floor(Math.random() * bottles.length), 1)[0];
-      socket.emit("foundBottle", randomBottle.message);
-    } else {
-      socket.emit("foundBottle", "🌊 No bottles floating right now — toss one in!");
-    }
-  });
-
-  socket.on("disconnect", () => {
-    console.log("🚪 User left");
+  socket.on("findBottle", () => {
+    const phrases = [
+      "🌊 The ocean whispers your name...",
+      "📜 A secret floats just for you...",
+      "🌴 A driftwood note has arrived...",
+      "💌 You’ve found a message at sea...",
+      "🚢 A lonely sailor left this behind..."
+    ];
+    const reply = phrases[Math.floor(Math.random() * phrases.length)];
+    socket.emit("bottleFound", reply);
   });
 });
 
-httpServer.listen(3000, () => {
-  console.log("🚀 Message in the Ocean running on http://localhost:3000");
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`🚀 Message in the Ocean running on port ${PORT}`);
 });
